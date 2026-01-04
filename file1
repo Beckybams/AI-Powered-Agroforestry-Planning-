@@ -1,0 +1,95 @@
+# AI-Powered Agroforestry Planning (Synthetic Data)
+# ------------------------------------------------
+# Predicts land suitability and recommends tree–crop combinations
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error
+
+# -----------------------------
+# 1. Generate Synthetic Data
+# -----------------------------
+np.random.seed(42)
+n_samples = 1000
+
+data = pd.DataFrame({
+    "soil_ph": np.random.uniform(4.5, 8.0, n_samples),
+    "soil_moisture": np.random.uniform(10, 45, n_samples),   # %
+    "rainfall": np.random.uniform(600, 2500, n_samples),     # mm/year
+    "temperature": np.random.uniform(18, 35, n_samples),     # °C
+    "slope": np.random.uniform(0, 25, n_samples),            # degrees
+    "land_size": np.random.uniform(0.5, 10, n_samples)       # hectares
+})
+
+# Synthetic agroforestry suitability/yield score (0–100)
+data["suitability_score"] = (
+    0.3 * data["soil_moisture"] +
+    0.25 * (data["rainfall"] / 25) +
+    0.2 * (35 - abs(data["temperature"] - 26)) +
+    0.15 * (8 - abs(data["soil_ph"] - 6.5)) +
+    0.1 * (25 - data["slope"]) +
+    np.random.normal(0, 5, n_samples)
+)
+
+data["suitability_score"] = data["suitability_score"].clip(0, 100)
+
+# -----------------------------
+# 2. Train ML Model
+# -----------------------------
+X = data.drop("suitability_score", axis=1)
+y = data["suitability_score"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+model = RandomForestRegressor(
+    n_estimators=200,
+    max_depth=12,
+    random_state=42
+)
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)
+print("MAE:", round(mean_absolute_error(y_test, y_pred), 2))
+
+# -----------------------------
+# 3. Agroforestry Recommendation Engine
+# -----------------------------
+def recommend_agroforestry_plan(features_df):
+    preds = model.predict(features_df)
+
+    recommendations = []
+    for score in preds:
+        if score >= 75:
+            plan = "Timber trees + Cocoa/Coffee (High-value agroforestry)"
+        elif score >= 55:
+            plan = "Fruit trees + Maize/Legumes (Mixed system)"
+        elif score >= 40:
+            plan = "Nitrogen-fixing trees + Grains (Soil restoration)"
+        else:
+            plan = "Grass + Shrubs (Conservation-focused)"
+        recommendations.append(plan)
+
+    result = features_df.copy()
+    result["predicted_suitability"] = preds
+    result["recommended_plan"] = recommendations
+    return result
+
+# -----------------------------
+# 4. Test on New Synthetic Farms
+# -----------------------------
+new_farms = pd.DataFrame({
+    "soil_ph": [6.2, 5.4, 7.1],
+    "soil_moisture": [32, 18, 25],
+    "rainfall": [1800, 900, 1200],
+    "temperature": [27, 31, 24],
+    "slope": [6, 14, 9],
+    "land_size": [2.5, 1.2, 4.0]
+})
+
+plans = recommend_agroforestry_plan(new_farms)
+print("\nAgroforestry Planning Recommendations:")
+print(plans)
